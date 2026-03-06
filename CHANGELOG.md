@@ -4,7 +4,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
-## [1.17.3 / 5.72.3] - 2026-02-??
+## [1.17.3 / 5.72.3] - 2026-03-??
 
 ### Added
 - added configurable window location settings to control which monitor main, non-main, file recovery, and notification windows open on, including a selectable fallback mode. [#4536](https://github.com/sandboxie-plus/Sandboxie/issues/4536) [#5238](https://github.com/sandboxie-plus/Sandboxie/pull/5238)
@@ -24,7 +24,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - changed duplicate sandbox behavior so active box aliases also receive the "Copy" suffix on duplication
 - changed tray sandbox/group ordering to mirror sandbox list mode (manual / ascending / descending), including group ordering
 - improved tray/sandbox submenu icon caching by resolving `DblClickAction` target paths (`GetCommandFile`) only on cache misses and caching `LoadWindowsIcon(path,index)` results for Run/Start menu entries, reducing repeated system icon extraction when opening menus
-- refactored all-mode borders to per-window overlays
+- improved border rendering
 
 ### Fixed
 - fixed false "Some changes haven't been saved yet" prompt when leaving Network Options with unlisted-process network mode set to non-default
