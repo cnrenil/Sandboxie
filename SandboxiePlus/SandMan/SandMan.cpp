@@ -551,6 +551,12 @@ CSandMan::CSandMan(QWidget *parent)
 	CreateUI();
 	setCentralWidget(m_pMainWidget);
 
+	m_iRefreshTick = 0;
+
+	m_pSummaryInfo = new QLabel();
+	m_pSummaryInfo->setContentsMargins(4, 0, 8, 0);
+	statusBar()->addPermanentWidget(m_pSummaryInfo, 1); // stretch=1 → left-aligned summary
+
 	m_pTraceInfo = new QLabel();
 	m_pDisabledForce = new QLabel();
 	m_pDisabledRecovery = new QLabel();
@@ -1496,6 +1502,12 @@ void CSandMan::CreateView(int iViewMode)
 {
 	m_pBoxView = new CSbieView();
 	connect(m_pBoxView, SIGNAL(BoxSelected()), this, SLOT(OnBoxSelected()));
+	connect(m_pBoxView->GetSbieModel(), &CSbieModel::ResourceStatsUpdated,
+		this, [this](int total, int active, int procs, quint64 mem) {
+		if (m_pSummaryInfo)
+			m_pSummaryInfo->setText(tr("Boxes: %1 (%2 active)  |  Processes: %3  |  Memory: %4")
+				.arg(total).arg(active).arg(procs).arg(FormatSize(mem)));
+	});
 	m_pFileView = new CFileView();
 
 	if (iViewMode != 1) {
@@ -1616,6 +1628,8 @@ void CSandMan::CreateView(int iViewMode)
 		m_pRecoveryLog->GetView()->setSortingEnabled(false);
 
 		m_pLogTabs->addTab(m_pRecoveryLog, tr("Recovery Log"));
+		//
+
 		//
 	}
 	else {
@@ -2174,6 +2188,10 @@ void CSandMan::timerEvent(QTimerEvent* pEvent)
 
 		UpdateProcesses();
 
+		// Refresh CPU/memory columns in the main view every 2 seconds
+		if (m_pBoxView && (++m_iRefreshTick % 2 == 0))
+			m_pBoxView->GetSbieModel()->RefreshResourceStats();
+
 		bForceProcessDisabled = theAPI->AreForceProcessDisabled();
 		m_pDisableForce->setChecked(bForceProcessDisabled);
 		m_pDisableForce2->setChecked(bForceProcessDisabled);
@@ -2489,6 +2507,11 @@ SB_STATUS CSandMan::DeleteBoxContent(const CSandBoxPtr& pBox, EDelMode Mode, boo
 	}
 
 	m_iDeletingContent++;
+	if (m_pTrayIcon) {
+		bool isConnected = theAPI->IsConnected();
+		m_pTrayIcon->setIcon(GetTrayIcon(isConnected));
+		m_pTrayIcon->setToolTip(GetTrayText(isConnected));
+	}
 
 	if (Mode != eForDelete) {
 
@@ -2531,7 +2554,12 @@ SB_STATUS CSandMan::DeleteBoxContent(const CSandBoxPtr& pBox, EDelMode Mode, boo
 	}
 
 finish:
-	m_iDeletingContent--;
+	m_iDeletingContent = qMax(0, m_iDeletingContent - 1);
+	if (m_pTrayIcon) {
+		bool isConnected = theAPI->IsConnected();
+		m_pTrayIcon->setIcon(GetTrayIcon(isConnected));
+		m_pTrayIcon->setToolTip(GetTrayText(isConnected));
+	}
 	return Ret;
 }
 
@@ -3046,6 +3074,7 @@ void CSandMan::UpdateState()
 	m_iIconDisabled = -1;
 	m_bIconBusy = false;
 	m_bIconSun = false;
+	m_iDeletingContent = 0;
 
 	m_pRunBoxed->setEnabled(isConnected);
 	m_pNewBox->setEnabled(isConnected);
@@ -3666,7 +3695,15 @@ void CSandMan::OnNotAuthorized(bool bLoginRequired, bool& bRetry)
 
 void CSandMan::OnBoxDblClick(QTreeWidgetItem* pItem)
 {
-	m_pBoxView->OnDoubleClicked(theAPI->GetBoxByName(pItem->data(0, Qt::UserRole).toString()));
+	if (!pItem || !m_pBoxView || !theAPI)
+		return;
+	QString Name = pItem->data(0, Qt::UserRole).toString();
+	if (Name.isEmpty())
+		return;
+	CSandBoxPtr pBox = theAPI->GetBoxByName(Name);
+	if (pBox.isNull())
+		return;
+	m_pBoxView->OnDoubleClicked(pBox);
 }
 
 void CSandMan::OnSandBoxAction()
@@ -3674,11 +3711,11 @@ void CSandMan::OnSandBoxAction()
 	QAction* pAction = qobject_cast<QAction*>(sender());
 
 	if (pAction == m_pNewBox)
-		GetBoxView()->AddNewBox();
+		GetBoxView()->AddNewBoxAction();
 	else if (pAction == m_pNewGroup)
-		GetBoxView()->AddNewGroup();
+		GetBoxView()->AddNewGroupAction();
 	else if (pAction == m_pImportBoxes)
-		ImportMultiBoxes(this);
+		GetBoxView()->ImportBoxesAction();
 	else if (pAction == m_pExportBoxes)
 		ExportMultiBoxes(this);
 	else if (pAction == m_pRunBoxed)

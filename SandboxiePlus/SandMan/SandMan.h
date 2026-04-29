@@ -449,6 +449,8 @@ private:
 	QLabel*				m_pDisabledRecovery;
 	QLabel*				m_pDisabledMessages;
 	QLabel*				m_pRamDiskInfo;
+	QLabel*				m_pSummaryInfo;
+	int					m_iRefreshTick;
 
 	// for old menu
 	QMenu*				m_pSandbox;
@@ -542,9 +544,17 @@ class CTreeItemDelegate2 : public CTreeItemDelegate
 
 class CTrayBoxesItemDelegate : public QStyledItemDelegate
 {
+	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+	{
+		QSize size = QStyledItemDelegate::sizeHint(option, index);
+		size.setHeight(qMax(size.height(), 20));
+		return size;
+	}
+
 	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 	{
 		QStyleOptionViewItem opt(option);
+		opt.displayAlignment = Qt::AlignLeft | Qt::AlignVCenter;
 		if ((opt.state & QStyle::State_MouseOver) != 0)
 			opt.state |= QStyle::State_Selected;
 		else if ((opt.state & QStyle::State_HasFocus) != 0 && m_Hold)
